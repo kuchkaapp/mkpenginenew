@@ -55,6 +55,7 @@ public final class Scene {
     private String wipeType = "fade";
     private long wipeLen, wipeT;
     private boolean wiping;
+    private int ruleLo, ruleHi;
     private int[] rule; private int ruleW, ruleH; private Bitmap maskBmp; private int[] maskPx;
 
     // quake
@@ -269,18 +270,29 @@ public final class Scene {
 
     // Luminance-mask ("rule") transition
     private void loadRule(String name) {
+        // Wipe masks are 8-bit grayscale PNGs (eff_xxx.png / ruleNN.png, 480x270); dark pixels appear first.
         Bitmap b = loadImageImpl(name, "rule", false);
-        if (b == null) return;
+        if (b == null) { android.util.Log.w("Scene", "wipe mask not found: " + name + " (using fade)"); return; }
         ruleW = b.getWidth(); ruleH = b.getHeight();
         rule = new int[ruleW * ruleH];
         b.getPixels(rule, 0, ruleW, 0, 0, ruleW, ruleH);
-        for (int i = 0; i < rule.length; i++) rule[i] = rule[i] & 0xFF;      // blue channel as luminance (rules are grayscale)
-        maskBmp = Bitmap.createBitmap(ruleW, ruleH, Bitmap.Config.ARGB_8888);
-        maskPx = new int[ruleW * ruleH];
+        int lo = 255, hi = 0;
+        for (int i = 0; i < rule.length; i++) {
+            int px = rule[i];
+            int lum = (((px >> 16) & 0xFF) + ((px >> 8) & 0xFF) + (px & 0xFF)) / 3;
+            rule[i] = lum;
+            if (lum < lo) lo = lum;
+            if (lum > hi) hi = lum;
+        }
+        ruleLo = lo; ruleHi = hi;
+        if (maskBmp == null || maskBmp.getWidth() != ruleW || maskBmp.getHeight() != ruleH) {
+            maskBmp = Bitmap.createBitmap(ruleW, ruleH, Bitmap.Config.ARGB_8888);
+            maskPx = new int[ruleW * ruleH];
+        }
     }
 
     private void drawRule(Canvas c, float p) {
-        float edge = 32f, t = p * (255f + edge);
+        float edge = 24f, t = ruleLo + p * (ruleHi - ruleLo + edge);
         for (int i = 0; i < rule.length; i++) {
             float a = (t - rule[i]) / edge;
             int v = a <= 0 ? 0 : a >= 1 ? 255 : (int) (a * 255);
