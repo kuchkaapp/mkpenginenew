@@ -71,6 +71,12 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
     private final TextPaint tp = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint np = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final Vibrator vib;
+    private final android.content.SharedPreferences globalsPrefs;
+
+    // #map screen (route select)
+    static final class MapItem { int idx, x, y; String image; boolean disabled; Bitmap bmp; Rect hit = new Rect(); }
+    private final List<MapItem> mapItems = new ArrayList<>();
+    private boolean mapActive; private int mapBackKey = -1;
     private String startScript = "start", afterScript = "after";
     private String notice = ""; private long noticeT;
 
@@ -78,10 +84,13 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
         super(a);
         act = a; storage = s; loc = l;
         scene = new Scene(s);
-        audio = new AudioPlayer(s);
+        audio = new AudioPlayer(s, a.getCacheDir());
         engine = new ScriptEngine(this);
         saves = new SaveManager(a, this);
         vib = (Vibrator) a.getSystemService(Context.VIBRATOR_SERVICE);
+        globalsPrefs = a.getSharedPreferences("globals", Context.MODE_PRIVATE);
+        for (java.util.Map.Entry<String, ?> e : globalsPrefs.getAll().entrySet())
+            if (e.getValue() instanceof Integer) engine.persistent.put(e.getKey(), (Integer) e.getValue());
         getHolder().addCallback(this);
         setFocusable(true);
         applyAudioPrefs();
@@ -122,6 +131,7 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
             String[] f = v.split("\\s*,\\s*");
             if (sec.equals("[menu]") && f.length >= 4) {
                 TitleItem it = new TitleItem();
+                if (k.equals("site")) continue;      // store/upgrade button removed
                 it.id = k; it.image = f[0];
                 try { it.group = Integer.parseInt(f[1]); it.x = Integer.parseInt(f[2]); it.y = Integer.parseInt(f[3]); } catch (Exception e) { continue; }
                 for (int i = 4; i < f.length; i++) if (f[i].equals("disabled")) it.enabled = false;
@@ -146,7 +156,13 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
         try { if (thread != null) thread.join(1500); } catch (InterruptedException ignored) { }
     }
 
-    public void onPause() { audio.pause(); }
+    void saveGlobals() {
+        android.content.SharedPreferences.Editor ed = globalsPrefs.edit();
+        for (java.util.Map.Entry<String, Integer> e : engine.persistent.entrySet()) ed.putInt(e.getKey(), e.getValue());
+        ed.apply();
+    }
+
+    public void onPause() { audio.pause(); saveGlobals(); }
     public void onResume() { audio.resume(); }
     public void destroy() { running = false; audio.release(); }
 
@@ -244,18 +260,32 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
             p.setAlpha(it.enabled ? 255 : 90);
             if (it.bmp != null) c.drawBitmap(it.bmp, it.x, it.y, p);
             p.setAlpha(255);
-            // Localised label on top of the (Japanese) button art
-            String label = loc.t(it.id);
-            p.setColor(0xB0000000); c.drawRoundRect(it.x, it.y, it.x + w, it.y + h, 10, 10, p);
-            drawCentered(c, label, it.x + w / 2f, it.y + h / 2f + 9, 28, it.enabled ? Color.WHITE : 0x88FFFFFF, false);
         }
         drawCentered(c, "v1.0-en", 900, 530, 14, 0x88FFFFFF, false);
     }
 
     private void drawGameUi(Canvas c) {
         if (messageVisible && !windowHidden && (!fullText.isEmpty() || !speaker.isEmpty())) drawMessage(c);
+        if (mapActive) { drawMap(c); return; }
         if (!choices.isEmpty()) drawChoices(c);
         if (!windowHidden) { drawBtn(c, btnMenu, "≡"); drawBtn(c, btnSkip, "»"); drawBtn(c, btnAuto, autoMode ? "A●" : "A"); drawBtn(c, btnHide, "▢"); }
+    }
+
+    private void drawMap(Canvas c) {
+        for (MapItem m : mapItems) {
+            if (m.bmp == null) m.bmp = scene.image(m.image);
+            int w = m.bmp != null ? m.bmp.getWidth() : 120, h = m.bmp != null ? m.bmp.getHeight() : 120;
+            m.hit.set(m.x, m.y, m.x + w, m.y + h);
+            p.setAlpha(m.disabled ? 90 : 255);
+            if (m.bmp != null) c.drawBitmap(m.bmp, m.x, m.y, p);
+            p.setAlpha(255);
+        }
+    }
+
+    private void chooseMap(int idx) {
+        mapActive = false; mapItems.clear();
+        saveGlobals();
+        engine.onMapResult(idx);
     }
 
     private void drawBtn(Canvas c, RectF r, String s) {
@@ -358,6 +388,10 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
 
     private void tap(float x, float y) {
         if (mode == Mode.TITLE) { titleTap(x, y); return; }
+        if (mapActive) {
+            for (MapItem m : mapItems) if (!m.disabled && m.hit.contains((int) x, (int) y)) { chooseMap(m.idx); return; }
+            return;
+        }
         if (windowHidden) { windowHidden = false; return; }
         if (!choices.isEmpty()) {
             for (int i = 0; i < choiceRects.size(); i++) if (choiceRects.get(i).contains(x, y)) {
@@ -402,10 +436,13 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
     }
 
     public boolean onBack() {
+        if (mapActive) { if (mapBackKey >= 0) post_map_back(); return true; }
         if (mode == Mode.GAME && choices.isEmpty()) { act.runOnUiThread(() -> saves.showInGameMenu()); return true; }
         if (mode == Mode.TITLE && titleExtra) { titleExtra = false; return true; }
         return false;
     }
+
+    private void post_map_back() { final int k = mapBackKey; enqueue(() -> { if (mapActive) chooseMap(k); }); }
 
     void mode(Mode m) { mode = m; }
 
@@ -437,12 +474,14 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
     @Override public void wipe(String type, int ms) { scene.wipe(type, ms); }
     @Override public void playBgm(String n, boolean loop) { audio.playBgm(n, loop); }
     @Override public void stopBgm() { audio.stopBgm(); }
+    @Override public void stopVoice() { audio.stopVoice(); }
     @Override public void playSe(String n, boolean loop) { audio.playSe(n, loop); }
     @Override public void stopSe() { audio.stopSe(); }
     @Override public void playVoice(String n) { audio.playVoice(n); }
 
     @Override public void showText(String sp, String text, boolean append) {
         scene.commitNow();
+        messageVisible = true;
         if (sp != null) speaker = sp; else if (!append) speaker = "";
         fullText = append && !fullText.isEmpty() ? fullText + "\n" + text : text;
         shownChars = append ? Math.max(0, fullText.length() - text.length()) : 0;
@@ -460,7 +499,7 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
     }
 
     @Override public void gotoTitle() {
-        mode = Mode.TITLE; titleExtra = false;
+        mode = Mode.TITLE; titleExtra = false; mapActive = false; mapItems.clear(); saveGlobals();
         loadTitleConfig();
         clearText(); choices.clear();
         scene.command(new String[]{"layer", "initialize"});
@@ -474,9 +513,38 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
     @Override public void command(String[] a) {
         switch (a[0]) {
             case "staff": saves.markExtrasUnlocked(); break;
+            case "map": doMap(a); break;
+            case "face":
+                if (a.length < 2 || a[1].equals("clear")) scene.command(new String[]{"layer", "delete", "face"});
+                else {
+                    Bitmap fb = scene.image(a[1]);
+                    scene.command(new String[]{"layer", "set", "face", a[1], "0", String.valueOf(fb == null ? 0 : Scene.H - fb.getHeight()), "1", "1", "0", "255", "0", "sync"});
+                }
+                break;
             case "savepoint": case "autosave": break;
             default: break;
         }
+    }
+
+    /** #map clean | bg <img> | set <idx> <img> <x> <y> <n> | backkey <idx> | disabled <idx> | start */
+    private void doMap(String[] a) {
+        if (a.length < 2) return;
+        try {
+            switch (a[1]) {
+                case "clean": mapItems.clear(); mapBackKey = -1; mapActive = false; break;
+                case "bg":
+                    scene.command(new String[]{"layer", "set", "bg", a[2], "0", "0", "1", "1", "0", "255", "0", "sync"}); break;
+                case "set": {
+                    MapItem m = new MapItem();
+                    m.idx = Integer.parseInt(a[2]); m.image = a[3]; m.x = Integer.parseInt(a[4]); m.y = Integer.parseInt(a[5]);
+                    mapItems.add(m); break;
+                }
+                case "backkey": mapBackKey = Integer.parseInt(a[2]); break;
+                case "disabled": { int i = Integer.parseInt(a[2]); for (MapItem m : mapItems) if (m.idx == i) m.disabled = true; break; }
+                case "start": mapActive = true; break;
+                default: break;
+            }
+        } catch (RuntimeException e) { log("bad #map: " + java.util.Arrays.toString(a)); }
     }
 
     @Override public boolean isBusy() { return scene.isBusy(); }

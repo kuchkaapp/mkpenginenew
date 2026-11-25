@@ -16,9 +16,9 @@ public class MainActivity extends Activity {
         hideSystemUi();
         Loc loc = new Loc(this);
         PackStorage storage = new PackStorage(this);
-        if (storage.getPackCount() == 0 && storage.readAsset("script/initial.src") == null) {
+        if (storage.getPackCount() == 0) {
             TextView t = new TextView(this);
-            t.setText(loc.t("nodata")); t.setGravity(Gravity.CENTER); t.setTextSize(18);
+            t.setText(loc.t("nodata") + "\n\n" + storage.getMediaPath()); t.setGravity(Gravity.CENTER); t.setTextSize(18);
             setContentView(t);
             return;
         }

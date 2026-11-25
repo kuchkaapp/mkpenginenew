@@ -49,9 +49,9 @@ public final class Loc {
         add("confirm_exit", "Quit the game?", "Выйти из игры?", "ゲームを終了しますか？");
         add("yes", "Yes", "Да", "はい");
         add("no", "No", "Нет", "いいえ");
-        add("nodata", "Game data not found.\nCopy your files to app/src/main/assets/data/ and rebuild (see README).",
-                "Данные игры не найдены.\nСкопируйте файлы в app/src/main/assets/data/ и пересоберите (см. README).",
-                "ゲームデータが見つかりません。\napp/src/main/assets/data/ にファイルを置いて再ビルドしてください。");
+        add("nodata", "Game data not found.\nCopy the .mkh/.mkp files into this folder, then restart the app:",
+                "Данные игры не найдены.\nСкопируйте файлы .mkh/.mkp в эту папку и перезапустите приложение:",
+                "ゲームデータが見つかりません。\n.mkh/.mkp ファイルを次のフォルダに置いて再起動してください：");
         add("saved", "Saved", "Сохранено", "セーブしました");
         add("tap", "Tap to continue", "Нажмите для продолжения", "タップで続行");
     }

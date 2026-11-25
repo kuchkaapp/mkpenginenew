@@ -39,6 +39,7 @@ public final class ScriptEngine {
         void playSe(String name, boolean loop);
         void stopSe();
         void playVoice(String name);
+        void stopVoice();
         void showText(String speaker, String text, boolean append);
         void clearText();
         void setMessageVisible(boolean v);
@@ -55,6 +56,8 @@ public final class ScriptEngine {
 
     private final Host host;
     private final Map<String, Integer> vars = new HashMap<>();
+    /** Global flags (s<N>) that survive new games, e.g. unlocked routes. */
+    public final Map<String, Integer> persistent = new HashMap<>();
     private final Random rnd = new Random();
 
     private List<String> lines = new ArrayList<>();
@@ -76,6 +79,7 @@ public final class ScriptEngine {
 
     public void reset() {
         vars.clear();
+        vars.putAll(persistent);
         // Original game gates content behind a purchase / download check.
         // All data is bundled locally now, so those flags are fixed.
         vars.put("b", 1);
@@ -94,7 +98,18 @@ public final class ScriptEngine {
     public List<Object[]> getCallStack() { List<Object[]> l = new ArrayList<>(callStack); java.util.Collections.reverse(l); return l; }
     public void setCallStack(List<Object[]> frames) { callStack.clear(); for (Object[] f : frames) callStack.push(f); }
 
-    public void setVar(String k, int v) { vars.put(k.toLowerCase(Locale.ROOT), v); }
+    public void setVar(String k, int v) {
+        k = k.toLowerCase(Locale.ROOT);
+        vars.put(k, v);
+        if (k.matches("s\\d+")) persistent.put(k, v);
+    }
+
+    /** Result of the #map screen: stores the chosen index in f0 and resumes the script. */
+    public void onMapResult(int idx) {
+        if (wait != Wait.SELECT) return;
+        vars.put("f0", idx);
+        wait = Wait.NONE;
+    }
     public int getVar(String k) { Integer v = vars.get(k.toLowerCase(Locale.ROOT)); return v == null ? 0 : v; }
 
     public boolean load(String name, String label) {
@@ -112,15 +127,11 @@ public final class ScriptEngine {
         wait = Wait.NONE;
     }
 
-    /** ";non encode" header = plain text, otherwise XOR 0xA7. Text is UTF-8 if valid/BOM, else Shift-JIS. */
-    static List<String> decode(byte[] raw) {
-        byte[] b = raw;
-        byte[] hdr = ";non encode".getBytes();
-        boolean plain = b.length >= hdr.length && Arrays.equals(Arrays.copyOf(b, hdr.length), hdr);
-        if (!plain) {
-            b = raw.clone();
-            for (int i = 0; i < b.length; i++) b[i] ^= (byte) 0xA7;
-        }
+    /**
+     * Scripts are plain text by the time they get here (pack contents are de-XORed by PackStorage and the
+     * bundled initial/bci scripts are stored decoded). Encoding: UTF-8 (translations) or Shift-JIS (originals).
+     */
+    static List<String> decode(byte[] b) {
         String text;
         if (b.length >= 3 && (b[0] & 0xFF) == 0xEF && (b[1] & 0xFF) == 0xBB && (b[2] & 0xFF) == 0xBF) {
             text = new String(b, 3, b.length - 3, Charset.forName("UTF-8"));
@@ -283,9 +294,13 @@ public final class ScriptEngine {
                 wait = Wait.BUSY; return false;
             case "bgm": doBgm(a); return true;
             case "se": case "se2": doSe(a); return true;
-            case "voice": if (a.length > 1) host.playVoice(a[1]); return true;
+            case "voice": if (a.length < 2 || a[1].equals("stop") || a[1].equals("off")) host.stopVoice(); else host.playVoice(a[1]); return true;
             case "mes": host.setMessageVisible(a.length < 2 || !a[1].equals("off")); if (a.length > 1 && a[1].equals("off")) host.clearText(); return true;
             case "select": doSelect(a); return false;
+            case "map":
+                host.command(a);
+                if (a.length > 1 && a[1].equals("start")) { wait = Wait.SELECT; selectTargets = null; return false; }
+                return true;
             case "title": host.gotoTitle(); wait = Wait.END; return false;
             case "shake": case "shakeh": case "shakev": case "quake":
                 host.shake(a.length > 1 ? parse(a[1]) : 500, !cmd.equals("shakev"), !cmd.equals("shakeh")); return true;

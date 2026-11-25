@@ -22,12 +22,13 @@ public final class AudioPlayer {
     }
 
     private final PackStorage storage;
+    private final java.io.File cacheDir;
     private MediaPlayer bgm, se, voice;
     private String bgmName = "";
     public float bgmVol = 0.8f, seVol = 0.8f, voiceVol = 1f;
     public boolean voiceEnabled = true;
 
-    public AudioPlayer(PackStorage s) { storage = s; }
+    public AudioPlayer(PackStorage s, java.io.File cache) { storage = s; cacheDir = cache; }
 
     private byte[] find(String base) {
         base = base.toLowerCase();
@@ -38,16 +39,34 @@ public final class AudioPlayer {
     }
 
     private MediaPlayer make(byte[] data, boolean loop, float vol) {
-        if (data == null) return null;
-        try {
-            MediaPlayer mp = new MediaPlayer();
+        if (data == null) { android.util.Log.w("Audio", "sound file not found"); return null; }
+        MediaPlayer mp = null;
+        try {                                   // 1) stream from memory
+            mp = new MediaPlayer();
             mp.setDataSource(new MemSource(data));
-            mp.setLooping(loop);
-            mp.setVolume(vol, vol);
-            mp.prepare();
-            mp.start();
+            mp.setLooping(loop); mp.setVolume(vol, vol);
+            mp.prepare(); mp.start();
             return mp;
-        } catch (IOException | IllegalStateException e) { return null; }
+        } catch (Exception e) {
+            android.util.Log.w("Audio", "memory source failed, trying temp file", e);
+            if (mp != null) mp.release();
+        }
+        try {                                   // 2) fallback: temp file
+            java.io.File f = java.io.File.createTempFile("snd", ".ogg", cacheDir);
+            f.deleteOnExit();
+            try (java.io.FileOutputStream o = new java.io.FileOutputStream(f)) { o.write(data); }
+            mp = new MediaPlayer();
+            mp.setDataSource(f.getAbsolutePath());
+            mp.setLooping(loop); mp.setVolume(vol, vol);
+            mp.prepare(); mp.start();
+            final java.io.File ff = f;
+            mp.setOnCompletionListener(m -> ff.delete());
+            return mp;
+        } catch (Exception e) {
+            android.util.Log.e("Audio", "cannot play sound", e);
+            if (mp != null) mp.release();
+            return null;
+        }
     }
 
     private static void kill(MediaPlayer mp) {

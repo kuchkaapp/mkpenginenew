@@ -62,7 +62,7 @@ public final class Scene {
 
     public Scene(PackStorage s) { storage = s; }
 
-    public boolean isBusy() { return wiping || shakeT > 0; }
+    public boolean isBusy() { return wiping; }
     public void skipTransitions() { wiping = false; shakeT = 0; releaseFrames(); }
 
     // ------------------------------------------------------------- commands
@@ -70,13 +70,76 @@ public final class Scene {
     public void command(String[] a) {
         if (a.length < 2) return;
         switch (a[1]) {
-            case "initialize": staged.clear(); shown = new ArrayList<>(); return;
+            case "initialize": staged.clear(); shown = new ArrayList<>(); tweens.clear(); return;
             case "delete": delete(a.length > 2 ? a[2] : "all"); return;
             case "set": set(a); return;
+            case "sync": syncLayer(a.length > 2 ? a[2] : "all"); return;
             case "wipe": wipe(a.length > 2 ? a[2] : "fade", a.length > 3 ? num(a[3], 300) : 300); return;
-            case "move": case "opacity": case "opacity2": case "scale": case "rotate": adjust(a); return;
-            default: return;
+            case "move": tween(a, 0); return;
+            case "opacity": case "opacity2": tween(a, 1); return;
+            case "scale": tween(a, 2); return;
+            case "rotate": tween(a, 3); return;
+            case "quake": quake(a.length > 3 ? num(a[3], 8) : 8, a.length > 4 ? num(a[4], 8) : 8, a.length > 6 ? num(a[6], 500) : 500); return;
+            case "stopaction": shakeT = 0; return;
+            default: return;     // camera, moveaction, opacityaction, back, fade: not implemented
         }
+    }
+
+    // --- animated property changes: #layer move <n> x y ms | opacity <n> a ms | scale <n> sx sy ms | rotate <n> deg ms
+    private static final class Tween { String name; int kind; float f1, f2, t1, t2; long t, dur; boolean init; }
+    private final List<Tween> tweens = new ArrayList<>();
+
+    private void tween(String[] a, int kind) {
+        if (a.length < 4) return;
+        Tween w = new Tween(); w.name = a[2]; w.kind = kind;
+        int msIdx;
+        switch (kind) {
+            case 0: w.t1 = fnum(a[3], 0); w.t2 = a.length > 4 ? fnum(a[4], 0) : 0; msIdx = 5; break;
+            case 1: w.t1 = fnum(a[3], 255); msIdx = 4; break;
+            case 2: w.t1 = fnum(a[3], 1); w.t2 = a.length > 4 ? fnum(a[4], w.t1) : w.t1; msIdx = 5; break;
+            default: w.t1 = fnum(a[3], 0); msIdx = 4;
+        }
+        w.dur = a.length > msIdx ? num(a[msIdx], 0) : 0;
+        for (int i = tweens.size() - 1; i >= 0; i--) if (tweens.get(i).name.equals(w.name) && tweens.get(i).kind == kind) tweens.remove(i);
+        tweens.add(w);
+        if (w.dur <= 0) { stepTween(w, 1f); tweens.remove(w); }
+    }
+
+    private void stepTween(Tween w, float p) {
+        Layer s = find(staged, w.name), v = find(shown, w.name);
+        if (s == null && v == null) return;
+        Layer ref = s != null ? s : v;
+        if (!w.init) {
+            switch (w.kind) {
+                case 0: w.f1 = ref.x; w.f2 = ref.y; break;
+                case 1: w.f1 = ref.alpha; break;
+                case 2: w.f1 = ref.sx; w.f2 = ref.sy; break;
+                default: w.f1 = ref.rot;
+            }
+            w.init = true;
+        }
+        for (Layer l : new Layer[]{s, v}) {
+            if (l == null) continue;
+            switch (w.kind) {
+                case 0: l.x = w.f1 + (w.t1 - w.f1) * p; l.y = w.f2 + (w.t2 - w.f2) * p; break;
+                case 1: l.alpha = Math.max(0, Math.min(255, (int) (w.f1 + (w.t1 - w.f1) * p))); break;
+                case 2: l.sx = w.f1 + (w.t1 - w.f1) * p; l.sy = w.f2 + (w.t2 - w.f2) * p; break;
+                default: l.rot = w.f1 + (w.t1 - w.f1) * p;
+            }
+        }
+    }
+
+    /** Make one staged layer (or all) visible immediately, without a wipe. */
+    private void syncLayer(String name) {
+        if (name.equals("all")) { commitNow(); return; }
+        Layer s = find(staged, name);
+        for (int i = shown.size() - 1; i >= 0; i--) if (shown.get(i).name.equals(name)) shown.remove(i);
+        if (s != null) shown.add(s.copy());
+        Collections.sort(shown, new Comparator<Layer>() { public int compare(Layer p, Layer q) { return p.z - q.z; } });
+    }
+
+    private void quake(int ax, int ay, int dur) {
+        shakeAmp = Math.max(2, Math.max(ax, ay) / 2); shakeH = ax > 0; shakeV = ay > 0; shakeT = Math.max(100, dur);
     }
 
     private void delete(String name) {
@@ -103,19 +166,6 @@ public final class Scene {
             else if (a[i].equals("back")) l.z = -1;
         }
         if (sync) commitNow();
-    }
-
-    private void adjust(String[] a) {
-        if (a.length < 4) return;
-        Layer l = find(staged, a[2]);
-        if (l == null) return;
-        switch (a[1]) {
-            case "move": l.x = num(a[3], (int) l.x); if (a.length > 4) l.y = num(a[4], (int) l.y); break;
-            case "opacity": case "opacity2": l.alpha = Math.max(0, Math.min(255, num(a[3], l.alpha))); break;
-            case "scale": l.sx = fnum(a[3], l.sx); l.sy = a.length > 4 ? fnum(a[4], l.sy) : l.sx; break;
-            case "rotate": l.rot = num(a[3], (int) l.rot); break;
-        }
-        commitNow();
     }
 
     private static int defaultZ(String n) {
@@ -146,7 +196,7 @@ public final class Scene {
         drawLayers(new Canvas(newFrame), shown, 1f);
         wipeType = type.toLowerCase(Locale.ROOT); wipeLen = ms; wipeT = 0; wiping = true;
         rule = null;
-        if (wipeType.startsWith("rule")) loadRule(wipeType);
+        if (!wipeType.equals("fade")) loadRule(wipeType);
     }
 
     private List<Layer> snapshot(List<Layer> src) {
@@ -161,6 +211,13 @@ public final class Scene {
     // ------------------------------------------------------------- update/draw
 
     public void update(long dt) {
+        for (int i = tweens.size() - 1; i >= 0; i--) {
+            Tween w = tweens.get(i);
+            w.t += dt;
+            float p = Math.min(1f, (float) w.t / Math.max(1, w.dur));
+            stepTween(w, p);
+            if (p >= 1f) tweens.remove(i);
+        }
         if (wiping) { wipeT += dt; if (wipeT >= wipeLen) { wiping = false; releaseFrames(); } }
         if (shakeT > 0) shakeT -= dt;
     }
@@ -212,7 +269,7 @@ public final class Scene {
 
     // Luminance-mask ("rule") transition
     private void loadRule(String name) {
-        Bitmap b = loadImage(name, "rule");
+        Bitmap b = loadImageImpl(name, "rule", false);
         if (b == null) return;
         ruleW = b.getWidth(); ruleH = b.getHeight();
         rule = new int[ruleW * ruleH];
@@ -253,7 +310,9 @@ public final class Scene {
 
     // ------------------------------------------------------------- images
 
-    public Bitmap loadImage(String name, String layer) {
+    public Bitmap loadImage(String name, String layer) { return loadImageImpl(name, layer, true); }
+
+    private Bitmap loadImageImpl(String name, String layer, boolean fallback) {
         if (name == null || name.isEmpty()) return null;
         String base = name;
         int slash = base.lastIndexOf('/');
@@ -264,6 +323,7 @@ public final class Scene {
         Bitmap b = cache.get(base);
         if (b != null) return b;
         byte[] data = storage.readAny("image", base, ".png", ".jpg", ".img", "");
+        if (data == null && !fallback) return null;
         if (data == null) {
             data = storage.readAsset("image/noimage.png");
             if (data == null) return null;
