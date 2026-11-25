@@ -97,7 +97,7 @@ public final class SaveManager {
     public void load(final int slot) {
         final JSONObject o = read(slot);
         if (o == null) return;
-        gv.post(() -> {
+        gv.enqueue(() -> {
             try {
                 gv.mode(GameView.Mode.GAME);
                 gv.engine.reset();
@@ -267,7 +267,7 @@ public final class SaveManager {
             String[] f = ln.substring(5).trim().split(",", 2);
             ids.add(f[0].trim()); names.add(f.length > 1 ? f[1].trim() : f[0].trim());
         }
-        immersive(builder().setTitle(L().t("bgmmode")).setItems(names.toArray(new String[0]), (d, w) -> gv.post(() -> gv.audio.playBgm(ids.get(w), true)))
+        immersive(builder().setTitle(L().t("bgmmode")).setItems(names.toArray(new String[0]), (d, w) -> gv.enqueue(() -> gv.audio.playBgm(ids.get(w), true)))
                 .setNegativeButton(L().t("close"), null).create());
     }
 

@@ -150,14 +150,14 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
     public void onResume() { audio.resume(); }
     public void destroy() { running = false; audio.release(); }
 
-    public void post(Runnable r) { queue.add(r); }
+    public void enqueue(Runnable r) { queue.add(r); }
 
     // --------------------------------------------------------------- main loop
 
     @Override public void run() {
         long last = System.nanoTime();
         if (storage.getPackCount() == 0 && storage.readAsset("script/initial.src") == null) { /* nothing to run */ }
-        post(this::bootstrap);
+        enqueue(this::bootstrap);
         while (running) {
             long now = System.nanoTime();
             long dt = Math.min(100, (now - last) / 1_000_000L);
@@ -351,7 +351,7 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
             if (mode == Mode.GAME && btnSkip.contains(vx, vy) && choices.isEmpty()) { skipHeld = true; return true; }
         } else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) {
             skipHeld = false;
-            if (a == MotionEvent.ACTION_UP) { final float fx = vx, fy = vy; post(() -> tap(fx, fy)); }
+            if (a == MotionEvent.ACTION_UP) { final float fx = vx, fy = vy; enqueue(() -> tap(fx, fy)); }
         }
         return true;
     }
@@ -412,7 +412,7 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
     public void showNotice(String s) { notice = s; noticeT = 1800; }
 
     public void returnToTitle() {
-        post(() -> { gotoTitle(); });
+        enqueue(() -> { gotoTitle(); });
     }
 
     // ------------------------------------------------------- state for saving
