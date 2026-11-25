@@ -1,0 +1,78 @@
+;---- buy check 2 ----
+#if b&&d==2
+	#return2
+#endif
+#autosave off
+#if !b
+	#buycheck 0 android
+	#if !b
+		#offskip
+		体験版はここで終了です。
+		ここから先のシナリオはロックされています。
+		*
+
+		#mes off
+
+		#label _select
+		#select gototitle opensite _retry
+		タイトルに戻る
+		シナリオロック解除キーを購入する
+		購入確認を行う
+
+		#label gototitle
+		#mes off
+		#autosave on
+		#title
+
+		#label opensite
+		#storedialog
+		#if b
+			#goto _download
+		#else
+			#goto _select
+		#endif
+
+		#label _retry
+		#buycheck 0 android
+		#if !b
+			#offskip
+			ライセンスキーを確認できませんでした。
+			*
+
+			#mes off
+
+			#goto _select
+		#endif
+	#endif
+#endif
+#label _download
+#set s2 1
+#if d!=2
+	#offskip
+	シナリオデータをダウンロードします。
+	*
+
+	#mes off
+
+	#select gototitle2 download2
+	ダウンロードせずにタイトルに戻る
+	ダウンロードする
+	#label gototitle2
+	#mes off
+	#autosave on
+	#title
+
+	#label download2
+
+	#downloadfiles
+
+	#if d!=2
+		シナリオデータのダウンロードはタイトルメニューの
+		「バージョンチェック」より再度実行できます。
+		*
+		#autosave on
+		#title
+	#endif
+#endif
+#autosave on
+#return2

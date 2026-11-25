@@ -1,0 +1,22 @@
+fontsize:	20
+data:	bgm001,—z‚Ύ‚ά‚θ‚Μ“ϊν
+data:	bgm002,‰Έ‚β‚©‚Θ’²‚Χ
+data:	bgm003,Γβ‚Ζ‹¤‚Ι
+data:	bgm004,Ξη‚π•‚‚©‚Χ‚Δ
+data:	bgm005,SAΓ‚©‚Ι—h‚η‚·
+data:	bgm006,‚ ‚ιμ€‚Μ“^––
+data:	bgm007,χ‰Τ‹¶‘z‹Θ
+data:	bgm008,’Κ‚¶‡‚¤‹C‚Ώ
+data:	bgm009,”ί‚µ‚έ‚Μ‘«‰Ή
+data:	bgm010,–j‚π“`‚¤΄
+data:	bgm011,Ψ‚θJ‚­‚Ν“Ή
+data:	bgm012,μ‚Ρ‚Ν‹¤‚Ι•ª‚©‚Ώ‡‚¤Χ‚Ι
+data:	bgm013,‰Τ‚Μ‰ƒ
+data:	bgm014,‰Ψ”ό‚Θ‚ιεKεN
+data:	bgm015,δ‚©‚κ‚ ‚¤S
+data:	bgm016,‚±‚κ‚©‚η‚ΰκ‚Ι
+data:	bgm017,–ι‘z‹Θ
+data:	bgm018,σ–]‚π‹Ή‚Ι
+data:	bgm000,χF‚Μ‘z‚Ά.Inst
+data:	bgm019,χF‚Μ‘z‚Ά
+data:	bgm020,Story

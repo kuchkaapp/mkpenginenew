@@ -1,0 +1,56 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      data_url:
+        description: "Optional direct URL to a .zip with your .mkh/.mkp files (private/temporary link). Leave empty to build without game data."
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.5
+
+      # GitHub blocks files >100 MB, so the 800 MB game data should NOT be committed.
+      # Either pass data_url when running the workflow manually, or put the same zip URL in
+      # the repository secret GAME_DATA_URL.
+      - name: Download game data (optional)
+        env:
+          DATA_URL: ${{ github.event.inputs.data_url || secrets.GAME_DATA_URL }}
+        run: |
+          if [ -n "$DATA_URL" ]; then
+            curl -L --fail -o data.zip "$DATA_URL"
+            mkdir -p app/src/main/assets/data
+            unzip -o -j data.zip '*.mkh' '*.mkp' '*.snd' '*.ogg' '*.resogg' -d app/src/main/assets/data || true
+            rm -f data.zip
+            ls -lh app/src/main/assets/data | head -50
+          else
+            echo "No data URL given: building without game data (app will show 'Game data not found')."
+          fi
+
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SakuotoEN-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          compression-level: 0
+          retention-days: 7

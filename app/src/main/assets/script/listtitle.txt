@@ -1,0 +1,34 @@
+[flag]
+menu:	11
+;image:	12
+;bgm:	12
+;se:		13
+
+[menu]
+start:		tm_start,		0,60,176,true
+continue:	tm_load,		0,60,240,true
+config:		tm_config,		0,60,304,true
+extra:		tm_extra,		0,60,368,true,disabled
+end:		tm_exit,		0,60,432,true
+site:		tm_upgrade,		0,725,458,true
+
+[menu]
+start:		tm_start,		0,60,176,true
+continue:	tm_load,		0,60,240,true
+config:		tm_config,		0,60,304,true
+extra:		tm_extra,		0,60,368,true
+end:		tm_exit,		0,60,432,true
+site:		tm_upgrade,		0,725,458,true
+cgmode:		tm_cg,			1,60,196,true
+bgmmode:	tm_music,		1,60,260,true
+start2:		tm_after,		1,60,324,true
+return:		tm_return,		1,60,388,true
+
+[image]
+file:		title
+
+[bgm]
+file:		bgm000
+
+[se]
+file:		sys10,sys11,sys12,sys13,sys14,sys15,sys16

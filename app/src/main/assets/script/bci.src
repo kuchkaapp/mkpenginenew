@@ -1,0 +1,18 @@
+;---- buy check ----
+#offskip
+#if !b
+	#if s2==0
+		#buycheck 0 android
+		#if b
+			#set s2 1
+		#endif
+	#else
+		#clearboughtflag
+		#set s2 0
+		#buycheck 0 android
+		#if b
+			#set s2 1
+		#endif
+	#endif
+#endif
+#return2

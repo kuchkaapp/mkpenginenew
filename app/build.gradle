@@ -1,0 +1,24 @@
+plugins { id "com.android.application" }
+
+android {
+    namespace "com.sakuoto.en"
+    compileSdk 34
+    defaultConfig {
+        applicationId "com.sakuoto.en"
+        minSdk 29            // Android 10+
+        targetSdk 34
+        versionCode 1
+        versionName "1.0-en"
+    }
+    // The 800 MB of game data lives in src/main/assets/data and must stay
+    // UNCOMPRESSED so it can be memory-mapped / seeked without unpacking.
+    androidResources { noCompress "" }
+    packagingOptions { jniLibs { useLegacyPackaging false } }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

@@ -1,0 +1,27 @@
+;---initial.src---
+#autosave off
+#offskip
+#menu disabled
+
+;logo
+#layer initialize
+;;#layer set bg moeapp_logo 0 0 1 1 0 255 0 nosync
+;;#layer wipe fade 800
+;;#wait2 1500
+#layer set bg black 0 0 1 1 0 255 0 nosync
+#layer wipe fade 100
+#wait2 100
+
+#layer set bg logo 0 0 1 1 0 255 0 nosync
+#layer wipe fade 1000
+#se2 sys00 sys01 sys02 sys03 sys04 sys05 sys06
+#wait2 1500
+
+#layer delete all
+#layer set bg black 0 0 1 1 0 255 0 nosync
+#layer wipe fade 800
+
+#call bci
+
+;---- title menu ----
+#title
