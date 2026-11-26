@@ -29,6 +29,8 @@ import java.util.Locale;
  */
 public final class Scene {
     public static final int W = 960, H = 540;
+    /** Original engine: layer centre = canvas centre + (x, y) * CanvasScale; the image is drawn around that centre. */
+    public static final float CANVAS_SCALE = 0.75f;
 
     static final class Layer {
         String name, image; Bitmap bmp;
@@ -310,10 +312,12 @@ public final class Scene {
     private void drawLayers(Canvas c, List<Layer> layers, float globalAlpha) {
         for (Layer l : layers) {
             if (l.bmp == null) continue;
+            float cx = W / 2f + l.x * CANVAS_SCALE, cy = H / 2f + l.y * CANVAS_SCALE;
             m.reset();
+            m.postTranslate(-l.bmp.getWidth() / 2f, -l.bmp.getHeight() / 2f);
             m.postScale(l.sx, l.sy);
-            if (l.rot != 0) m.postRotate(l.rot, l.bmp.getWidth() * l.sx / 2f, l.bmp.getHeight() * l.sy / 2f);
-            m.postTranslate(l.x, l.y);
+            if (l.rot != 0) m.postRotate(l.rot);
+            m.postTranslate(cx, cy);
             paint.setAlpha((int) (l.alpha * globalAlpha));
             c.drawBitmap(l.bmp, m, paint);
         }

@@ -532,7 +532,10 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
                 if (a.length < 2 || a[1].equals("clear")) scene.command(new String[]{"layer", "delete", "face"});
                 else {
                     Bitmap fb = scene.image(a[1]);
-                    scene.command(new String[]{"layer", "set", "face", a[1], "0", String.valueOf(fb == null ? 0 : 500 - fb.getHeight()), "1", "1", "0", "255", "0", "sync"});
+                    int fw = fb == null ? 0 : fb.getWidth(), fh = fb == null ? 0 : fb.getHeight();
+                    // left edge at FaceX=0, bottom edge at FaceY=500 (xml_meswin); layer coords are centre-based
+                    float fx = (fw / 2f - Scene.W / 2f) / Scene.CANVAS_SCALE, fy = (500 - fh / 2f - Scene.H / 2f) / Scene.CANVAS_SCALE;
+                    scene.command(new String[]{"layer", "set", "face", a[1], String.valueOf(fx), String.valueOf(fy), "1", "1", "0", "255", "0", "sync"});
                 }
                 break;
             case "savepoint": case "autosave": break;
@@ -550,7 +553,8 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
                     scene.command(new String[]{"layer", "set", "bg", a[2], "0", "0", "1", "1", "0", "255", "0", "sync"}); break;
                 case "set": {
                     MapItem m = new MapItem();
-                    m.idx = Integer.parseInt(a[2]); m.image = a[3]; m.x = Integer.parseInt(a[4]); m.y = Integer.parseInt(a[5]);
+                    m.idx = Integer.parseInt(a[2]); m.image = a[3];
+                    m.x = Math.round(Integer.parseInt(a[4]) * Scene.CANVAS_SCALE); m.y = Math.round(Integer.parseInt(a[5]) * Scene.CANVAS_SCALE);   // 1280x720 design space
                     mapItems.add(m); break;
                 }
                 case "backkey": mapBackKey = Integer.parseInt(a[2]); break;
