@@ -293,36 +293,48 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
         drawCentered(c, s, r.centerX(), r.centerY() + 9, 26, Color.WHITE, false);
     }
 
+    // Layout constants taken from the original xml_meswin.xml (960x540 canvas)
+    private static final int WIN_W = 828, WIN_H = 176;
+    private static final int WIN_OFF_X = 100, WIN_OFF_Y = 60, WIN_PITCH_Y = 26, WIN_LINES = 4;
+    private static final int NAME_OFF_X = 60, NAME_OFF_Y = 54, NAME_STR_X = 86, NAME_STR_Y = 10;
+    private static final int WAIT_X = 64, WAIT_Y = 28, WAIT_FRAMES = 11, WAIT_INTERVAL = 80;
+
     private void drawMessage(Canvas c) {
         Bitmap win = scene.image("meswin");
-        float wx = 66, wy = 350;
-        if (win != null) { p.setAlpha(230); c.drawBitmap(win, wx, wy, p); p.setAlpha(255); }
-        else { p.setColor(0xCC000000); c.drawRoundRect(wx, wy, wx + 828, wy + 176, 14, 14, p); }
+        float wx = (Scene.W - WIN_W) / 2f, wy = Scene.H - WIN_H;
+        if (win != null) c.drawBitmap(win, wx, wy, p);
+        else { p.setColor(0xCC000000); c.drawRoundRect(wx, wy, wx + WIN_W, wy + WIN_H, 14, 14, p); }
 
         float size = loc.fontSize;
+        float lineH = Math.max(size * 1.25f, WIN_PITCH_Y * size / 20f);
         String shown = fullText.substring(0, Math.min(shownChars, fullText.length()));
         TextPaint paint = tp;
         paint.setTypeface(Loc.hasCjk(fullText) ? loc.cjkTypeface() : loc.typeface());
         paint.setTextSize(size); paint.setColor(Color.WHITE); paint.setTextAlign(Paint.Align.LEFT);
         paint.setShadowLayer(3, 1, 1, 0xFF000000);
-        float x = wx + 40, y = wy + 38, maxW = 828 - 80, lineH = size * 1.35f;
-        int maxLines = 4;
+        float x = wx + WIN_OFF_X, y = wy + WIN_OFF_Y, maxW = WIN_W - WIN_OFF_X - 70;
         List<String> wrapped = wrap(shown, paint, maxW);
-        for (int i = 0; i < wrapped.size() && i < maxLines + 2; i++) c.drawText(wrapped.get(i), x, y + i * lineH, paint);
+        int first = Math.max(0, wrapped.size() - WIN_LINES);          // scroll if the text is longer than the window
+        for (int i = first; i < wrapped.size(); i++) c.drawText(wrapped.get(i), x, y + (i - first) * lineH, paint);
         paint.clearShadowLayer();
 
         if (!speaker.isEmpty()) {
             Bitmap nb = scene.image("meswinname");
-            float nx = wx + 20, ny = wy - 34;
+            float nx = wx + NAME_OFF_X, ny = wy - NAME_OFF_Y;
             if (nb != null) c.drawBitmap(nb, nx, ny, p);
             np.setTypeface(Loc.hasCjk(speaker) ? loc.cjkTypeface() : loc.typeface());
-            np.setTextSize(24); np.setColor(Color.WHITE); np.setShadowLayer(3, 1, 1, Color.BLACK);
-            c.drawText(speaker, nx + 24, ny + 33, np);
+            np.setTextSize(20); np.setColor(Color.WHITE); np.setShadowLayer(3, 1, 1, Color.BLACK);
+            c.drawText(speaker, nx + NAME_STR_X, ny + NAME_STR_Y + 20, np);
             np.clearShadowLayer();
         }
         if (shownChars >= fullText.length() && engine.getWait() == ScriptEngine.Wait.KEY) {
-            long t = System.currentTimeMillis();
-            if ((t / 450) % 2 == 0) { p.setColor(Color.WHITE); c.drawCircle(wx + 828 - 36, wy + 176 - 30, 6, p); }
+            Bitmap kw = scene.image("keywait");
+            float kx = wx + WIN_W - WAIT_X - 32, ky = wy + WIN_H - WAIT_Y - 32;
+            if (kw != null) {
+                int fw = kw.getWidth() / WAIT_FRAMES, frame = (int) ((System.currentTimeMillis() / WAIT_INTERVAL) % WAIT_FRAMES);
+                Rect src = new Rect(frame * fw, 0, (frame + 1) * fw, kw.getHeight());
+                c.drawBitmap(kw, src, new RectF(kx, ky, kx + 32, ky + 32), p);
+            } else if ((System.currentTimeMillis() / 450) % 2 == 0) { p.setColor(Color.WHITE); c.drawCircle(kx + 16, ky + 16, 6, p); }
         }
     }
 
@@ -355,15 +367,17 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
     private void drawChoices(Canvas c) {
         choiceRects.clear();
         int n = choices.size();
-        float bw = 640, bh = 64, gap = 18;
+        float bw = 528, bh = 60, gap = 16;
         float total = n * bh + (n - 1) * gap;
         float y0 = (Scene.H - total) / 2f - 20;
         Bitmap sel = scene.image("select");
         for (int i = 0; i < n; i++) {
             RectF r = new RectF((Scene.W - bw) / 2f, y0 + i * (bh + gap), (Scene.W + bw) / 2f, y0 + i * (bh + gap) + bh);
             choiceRects.add(r);
-            if (sel != null) c.drawBitmap(sel, null, r, p);
-            else { p.setColor(0xCC202040); c.drawRoundRect(r, 14, 14, p); }
+            if (sel != null) {
+                int band = sel.getHeight() / 3;
+                c.drawBitmap(sel, new Rect(0, 0, sel.getWidth(), band), r, p);
+            } else { p.setColor(0xCC202040); c.drawRoundRect(r, 14, 14, p); }
             String s = choices.get(i);
             float size = 26;
             tp.setTypeface(Loc.hasCjk(s) ? loc.cjkTypeface() : loc.typeface()); tp.setTextSize(size);
@@ -518,7 +532,7 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
                 if (a.length < 2 || a[1].equals("clear")) scene.command(new String[]{"layer", "delete", "face"});
                 else {
                     Bitmap fb = scene.image(a[1]);
-                    scene.command(new String[]{"layer", "set", "face", a[1], "0", String.valueOf(fb == null ? 0 : Scene.H - fb.getHeight()), "1", "1", "0", "255", "0", "sync"});
+                    scene.command(new String[]{"layer", "set", "face", a[1], "0", String.valueOf(fb == null ? 0 : 500 - fb.getHeight()), "1", "1", "0", "255", "0", "sync"});
                 }
                 break;
             case "savepoint": case "autosave": break;

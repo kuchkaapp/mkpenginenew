@@ -64,7 +64,7 @@ public final class Loc {
     public int fontChoice;     // 0 = Roboto, 1 = Rounded M+
     public int textSpeed = 50; // 0..100
     public int autoSpeed = 50;
-    public int fontSize = 26;
+    public int fontSize = 21;
     public int bgm = 80, se = 80, voice = 100;
 
     public Loc(Context c) {
@@ -76,7 +76,7 @@ public final class Loc {
         fontChoice = prefs.getInt("font", lang == 2 ? 1 : 0);
         textSpeed = prefs.getInt("textSpeed", 50);
         autoSpeed = prefs.getInt("autoSpeed", 50);
-        fontSize = prefs.getInt("fontSize", 26);
+        fontSize = prefs.getInt("fontSize2", 21);
         bgm = prefs.getInt("bgm", 80); se = prefs.getInt("se", 80); voice = prefs.getInt("voice", 100);
         try { roboto = Typeface.createFromAsset(c.getAssets(), "fonts/Roboto.ttf"); } catch (Exception e) { roboto = Typeface.SANS_SERIF; }
         try { mplus = Typeface.createFromAsset(c.getAssets(), "fonts/RoundedMplus.ttf"); } catch (Exception e) { mplus = Typeface.SANS_SERIF; }
@@ -84,7 +84,7 @@ public final class Loc {
 
     public void save() {
         prefs.edit().putInt("lang", lang).putInt("font", fontChoice).putInt("textSpeed", textSpeed).putInt("autoSpeed", autoSpeed)
-                .putInt("fontSize", fontSize).putInt("bgm", bgm).putInt("se", se).putInt("voice", voice).apply();
+                .putInt("fontSize2", fontSize).putInt("bgm", bgm).putInt("se", se).putInt("voice", voice).apply();
     }
 
     public String t(String key) {
