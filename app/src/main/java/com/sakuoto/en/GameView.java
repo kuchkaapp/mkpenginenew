@@ -58,6 +58,8 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
 
     // title
     private final List<TitleItem> titleItems = new ArrayList<>();
+    private volatile TitleItem pressedTitle;      // finger currently held on this title button
+    private volatile int pressedChoice = -1;      // ... or on this choice button
     private boolean titleExtra;
     private String titleImage = "title", titleBgm = "bgm000";
     private String[] titleSe = {"sys10", "sys11", "sys12", "sys13", "sys14", "sys15", "sys16"};
@@ -255,10 +257,12 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
         for (TitleItem it : titleItems) {
             if (it.group != (titleExtra ? 1 : 0)) continue;
             if (it.bmp == null) it.bmp = scene.image(it.image);
-            int w = it.bmp != null ? it.bmp.getWidth() : 260, h = it.bmp != null ? it.bmp.getHeight() : 56;
-            it.hit.set(it.x, it.y, it.x + w, it.y + h);
-            p.setAlpha(it.enabled ? 255 : 90);
-            if (it.bmp != null) c.drawBitmap(it.bmp, it.x, it.y, p);
+            if (it.bmp == null) continue;
+            int w = it.bmp.getWidth(), band = it.bmp.getHeight() / 3;        // frame 0 = normal, frame 1 = pressed/held
+            it.hit.set(it.x, it.y, it.x + w, it.y + band);
+            int frame = (it.enabled && pressedTitle == it) ? 1 : 0;
+            p.setAlpha(it.enabled ? 255 : 110);
+            c.drawBitmap(it.bmp, new Rect(0, frame * band, w, (frame + 1) * band), new Rect(it.x, it.y, it.x + w, it.y + band), p);
             p.setAlpha(255);
         }
         drawCentered(c, "v1.0-en", 900, 530, 14, 0x88FFFFFF, false);
@@ -375,8 +379,8 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
             RectF r = new RectF((Scene.W - bw) / 2f, y0 + i * (bh + gap), (Scene.W + bw) / 2f, y0 + i * (bh + gap) + bh);
             choiceRects.add(r);
             if (sel != null) {
-                int band = sel.getHeight() / 3;
-                c.drawBitmap(sel, new Rect(0, 0, sel.getWidth(), band), r, p);
+                int band = sel.getHeight() / 3, f = pressedChoice == i ? 1 : 0;
+                c.drawBitmap(sel, new Rect(0, f * band, sel.getWidth(), (f + 1) * band), r, p);
             } else { p.setColor(0xCC202040); c.drawRoundRect(r, 14, 14, p); }
             String s = choices.get(i);
             float size = 26;
@@ -391,6 +395,8 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
     @Override public boolean onTouchEvent(MotionEvent e) {
         final float vx = (e.getX() - offX) / scale, vy = (e.getY() - offY) / scale;
         int a = e.getActionMasked();
+        if (a == MotionEvent.ACTION_DOWN || a == MotionEvent.ACTION_MOVE) updatePressed(vx, vy);
+        if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) { pressedTitle = null; pressedChoice = -1; }
         if (a == MotionEvent.ACTION_DOWN) {
             if (mode == Mode.GAME && btnSkip.contains(vx, vy) && choices.isEmpty()) { skipHeld = true; return true; }
         } else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) {
@@ -398,6 +404,16 @@ public final class GameView extends SurfaceView implements SurfaceHolder.Callbac
             if (a == MotionEvent.ACTION_UP) { final float fx = vx, fy = vy; enqueue(() -> tap(fx, fy)); }
         }
         return true;
+    }
+
+    private void updatePressed(float x, float y) {
+        pressedTitle = null; pressedChoice = -1;
+        if (mode == Mode.TITLE) {
+            for (TitleItem it : titleItems)
+                if (it.group == (titleExtra ? 1 : 0) && it.enabled && it.hit.contains((int) x, (int) y)) { pressedTitle = it; return; }
+        } else if (!choices.isEmpty()) {
+            for (int i = 0; i < choiceRects.size(); i++) if (choiceRects.get(i).contains(x, y)) { pressedChoice = i; return; }
+        }
     }
 
     private void tap(float x, float y) {
